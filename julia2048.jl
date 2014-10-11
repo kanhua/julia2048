@@ -1,3 +1,6 @@
+module julia2048
+
+
 const ContinueGame=999
 const WinGame=777
 const LoseGame=444
@@ -190,7 +193,6 @@ function randomAgent(board)
 
 	return legalMoves[lmIndex]
 
-
 end
 
 
@@ -316,30 +318,39 @@ end
 
 function iterativeRandom(board)
 
-	totalSteps=0
 
-	nextBoard=copy(board)
+	moves=100
 
-	legalMoves=getLegalMoves(nextBoard)
-	while length(legalMoves) > 0
+	scores=zeros(moves)
 
-		input=randomAgent(nextBoard)
+	for i=1:length(scores)
 
-		nnextBoard,dum=boardMove(nextBoard,input)
+		nextBoard=copy(board)
 
-		if isMoved(board,nnextBoard)>0
-			nnextBoard=addTile(nnextBoard)
+		totalSteps=0
+
+		legalMoves=getLegalMoves(nextBoard)
+		while length(legalMoves) > 0
+
+			input=randomAgent(nextBoard)
+
+			nnextBoard,dum=boardMove(nextBoard,input)
+
+			if isMoved(board,nnextBoard)>0
+				nnextBoard=addTile(nnextBoard)
+			end
+
+			totalSteps=totalSteps+1
+
+
+			legalMoves=getLegalMoves(nnextBoard)
+			nextBoard=nnextBoard
 		end
 
-		totalSteps=totalSteps+1
-
-
-		legalMoves=getLegalMoves(nnextBoard)
-		nextBoard=nnextBoard
+		scores[i]=totalSteps
 	end
 	
-	println(totalSteps)	
-	return totalSteps
+	return mean(scores)
 end
 
 
@@ -411,12 +422,12 @@ function gameLoop(player::Function)
 
 	@printf("total elapsed steps: %d\n",totalSteps)
 	@printf("final gamescore: %d\n",gameScore)
+
+	return gameScore
+end
+
 end
 
 
-
-for i=1:5
-	gameLoop(iterativeRandomAgent)
-end
 
 
