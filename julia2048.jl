@@ -1,5 +1,6 @@
 module julia2048
 
+export move, merge, moveMerge, boardMove, getLine, setLine, printBoard, initBoard, addTile
 
 const ContinueGame=999
 const WinGame=777
@@ -8,34 +9,55 @@ const QuitGame=-99
 
 
 
-function move(line,direction)
+function move(line::Array{Int64,1},direction::Int64)
 	lineLen=length(line)
 
 	nonZeroLine=line[line.>0]
 
-	if direction >0
-		newLine=[nonZeroLine,zeros(Int64,lineLen-length(nonZeroLine))]
-	elseif direction < 0
-		newLine=[zeros(Int64,lineLen-length(nonZeroLine)),nonZeroLine]
+	if length(nonZeroLine)<lineLen
+		if direction >0
+			newLine=[nonZeroLine,zeros(Int64,lineLen-length(nonZeroLine))]
+		elseif direction < 0
+			newLine=[zeros(Int64,lineLen-length(nonZeroLine)),nonZeroLine]
+		end
+		return newLine
+	
+	elseif length(nonZeroLine)==lineLen
+
+		return line
 	end
-	return newLine
 end
 
 
-function merge(line)
+function merge(line::Array{Int64,1},direction::Int64)
 
 	addScore=0
 	lineLen=length(line)
-	for idx=1:lineLen
-		nextidx=idx+1;
-		if nextidx<=lineLen
-			if line[idx]==line[nextidx]
+	if direction>0
+		for idx=1:lineLen
+			nextidx=idx+1;
+			if nextidx<=lineLen
+				if line[idx]==line[nextidx]
 
-				addScore=addScore+line[idx]
-				line[idx]=line[idx]*2
-				line[nextidx]=0
+					addScore=addScore+line[idx]*2
+					line[idx]=line[idx]*2
+					line[nextidx]=0
+				end
+
 			end
+		end
+	elseif direction <0
+		for idx=lineLen:-1:1
+			nextidx=idx-1;
+			if nextidx>=1
+				if line[idx]==line[nextidx]
 
+					addScore=addScore+line[idx]*2
+					line[idx]=line[idx]*2
+					line[nextidx]=0
+				end
+
+			end
 		end
 	end
 
@@ -44,11 +66,15 @@ end
 
 
 
-function moveMerge(line,direction)
+function moveMerge(line::Array{Int64,1},direction::Int64)
 
+	addScore=0
 	line=move(line,direction)
-	line,addScore=merge(line)
-	line=move(line,direction)
+	
+	line,addScore=merge(line,direction)
+	if addScore >0
+		line=move(line,direction)
+	end
 
 	return line,addScore
 end
@@ -73,7 +99,7 @@ function getLine(board,dim,index)
 
 	if dim==1
 		
-		return board[index,:]
+		return reshape(board[index,:],size(board,dim))
 
 	elseif dim==2
 
@@ -121,7 +147,7 @@ function initBoard(boardSize=4)
 
 	board=zeros(Int64,boardSize,boardSize)	
 
-	for i=1:3
+	for i=1:2
 		board=addTile(board)
 	end
 
@@ -210,7 +236,6 @@ function greedyAgent(board)
 
 	return legalMoves[maxIndex]
 
-
 end
 
 
@@ -218,6 +243,7 @@ function iterativeRandomAgent(board)
 
 	legalMoves,score=getLegalMoves_eval(board,iterativeRandom)
 
+	println(score)
 	assert(length(legalMoves)>0)
 
 	if length(score)>1
@@ -225,6 +251,7 @@ function iterativeRandomAgent(board)
 	else
 		maxIndex=1
 	end
+
 
 	return legalMoves[maxIndex]
 
@@ -239,7 +266,7 @@ function getFreeTiles(board)
 end
 
 
-function isMoved(board,nextBoard)
+function isMoved(board::Array{Int64,2},nextBoard::Array{Int64,2})
 	
 	# Check whether the board is moved
 
@@ -247,13 +274,12 @@ function isMoved(board,nextBoard)
 end
 
 
-function getLegalMoves(board)
+function getLegalMoves(board::Array{Int64,2})
 
 	possibleMoves=[1,-1,2,-2]
 	
 	# Construct an array for legal moves
 	legalMoves=[]
-	nextScores=[]
 
 	for i=1:length(possibleMoves)
 		newBoard,score=boardMove(board,possibleMoves[i])
@@ -293,7 +319,7 @@ function getLegalMoves_score(board)
 end
 
 
-function getLegalMoves_eval(board, eval::Function)
+function getLegalMoves_eval(board::Array{Int64,2}, eval::Function)
 
 
 	possibleMoves=[1,-1,2,-2]
@@ -316,10 +342,29 @@ function getLegalMoves_eval(board, eval::Function)
 end
 
 
-function iterativeRandom(board)
+function getGameScore(board)
+
+    tmp=0
+
+    for col=1:size(board,2), row=1:size(board,1)
+    	tmp=tmp+ssum(board[row,col])
+    end
+    return tmp
+end
+
+function ssum(N::Int64)
+
+	tmp=0
+	if N>2
+		tmp=N+2*ssum(convert(Int64,N/2))
+	end
+	return tmp
+end
+
+function iterativeRandom(board::Array{Int64,2})
 
 
-	moves=100
+	moves=10
 
 	scores=zeros(moves)
 
@@ -330,24 +375,33 @@ function iterativeRandom(board)
 		totalSteps=0
 
 		legalMoves=getLegalMoves(nextBoard)
+
+		gameScore=0
+
 		while length(legalMoves) > 0
 
-			input=randomAgent(nextBoard)
+			input=legalMoves[rand(1:length(legalMoves))]
 
-			nnextBoard,dum=boardMove(nextBoard,input)
+			nnextBoard,scoreDiff=boardMove(nextBoard,input)
 
-			if isMoved(board,nnextBoard)>0
-				nnextBoard=addTile(nnextBoard)
-			end
+			gameScore=gameScore+scoreDiff
+			
+			# Literally, we should put
+			# "if isMoved(board,nnextBoard)>0" here,
+			# but since we limit the possible moves to legalMoves, 
+			# so we don't need it
+			nnextBoard=addTile(nnextBoard)
+			
 
 			totalSteps=totalSteps+1
 
 
 			legalMoves=getLegalMoves(nnextBoard)
-			nextBoard=nnextBoard
+			nextBoard=copy(nnextBoard)
 		end
 
-		scores[i]=totalSteps
+		#scores[i]=getGameScore(nextBoard)
+		scores[i]=gameScore
 	end
 	
 	return mean(scores)
@@ -384,6 +438,7 @@ function gameLoop(player::Function)
 			println(printBoard(board))
 			@printf("current score: %d\n", gameScore)
 			@printf("accumulated steps: %d\n", totalSteps)
+			@printf("heurisitic score: %d\n", getGameScore(board))
 		end
 		
 		moveDir=player(board)
@@ -420,8 +475,11 @@ function gameLoop(player::Function)
 
 	end
 
+	println("the last board:")
+	println(board)
 	@printf("total elapsed steps: %d\n",totalSteps)
 	@printf("final gamescore: %d\n",gameScore)
+
 
 	return gameScore
 end

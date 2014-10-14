@@ -2,7 +2,7 @@ using julia2048
 
 #using Gadfly
 
-numberOfTrials=10
+numberOfTrials=1
 scores=zeros(numberOfTrials)
 for i=1:length(scores)
 	scores[i]=julia2048.gameLoop(julia2048.iterativeRandomAgent)
