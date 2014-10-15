@@ -159,8 +159,9 @@ end
 
 
 function addTile(board)
-
-	flatBoard=reshape(board,size(board,1)*size(board,2))
+	
+	newboard=copy(board)
+	flatBoard=reshape(newboard,size(board,1)*size(board,2))
 
 	# get index = zero
 	freeTileIndex=find(flatBoard.==0)
@@ -182,6 +183,7 @@ function addTile(board)
 	return reshape(flatBoard,size(board,1),size(board,2))
 
 end
+
 
 
 function humanPlayer(board)
@@ -211,7 +213,7 @@ function humanPlayer(board)
 end
 
 
-function randomAgent(board)
+function randomAgenit(board)
 
 	legalMoves=getLegalMoves(board)
 
@@ -254,8 +256,97 @@ function iterativeRandomAgent(board)
 
 
 	return legalMoves[maxIndex]
+end
+
+function randomGen(N)	
+	shift=2
+	n=rand(1:(N+shift+1))
+	while n<=shift || n==(N+shift+1)
+		n=rand(1:(N+shift))
+	end
+	return n-shift
+end
+
+
+
+function iterativeRandomAgent2(board)
+
+
+	startLegalMoves=getLegalMoves(board)
+
+	@assert(length(startLegalMoves)>0)
+	evalScores=zeros(length(startLegalMoves))
+	evalSteps=zeros(length(startLegalMoves))
+	forwardRuns=50
+
+	for legalMoveIdx=1:length(startLegalMoves)
+
+		predictExtraScores=zeros(forwardRuns)
+		predictExtraSteps=zeros(forwardRuns)
+
+
+		for i=1:forwardRuns
+			extraGameScore=0
+			totalSteps=1
+
+			nextBoard,scorediff=boardMove(board,startLegalMoves[legalMoveIdx])
+
+			extraGameScore=extraGameScore+scorediff
+		
+			nextBoard=addTile(nextBoard)
+			
+			legalMoves=getLegalMoves(nextBoard)
+
+
+			while length(legalMoves) > 0
+
+				input=legalMoves[rand(1:length(legalMoves))]
+
+				nnextBoard,scorediff=boardMove(nextBoard,input)
+	
+				extraGameScore=extraGameScore+scorediff
+		
+				# Literally, we should put
+				# "if isMoved(board,nnextBoard)>0" here,
+				# but since we limit the possible moves to legalMoves, 
+				# so we don't need it
+				nnextBoard=addTile(nnextBoard)
+				
+
+				totalSteps=totalSteps+1
+
+
+				legalMoves=getLegalMoves(nnextBoard)
+				nextBoard=copy(nnextBoard)
+			end
+
+			#@printf("extra score %d of the first run %d\n",extraGameScore,i)
+			predictExtraScores[i]=extraGameScore
+			predictExtraSteps[i]=totalSteps
+		end
+
+		
+		evalScores[legalMoveIdx]=mean(predictExtraScores)
+		evalSteps[legalMoveIdx]=mean(predictExtraSteps)
+
+	end
+
+
+	println(evalScores)
+	println(evalSteps)
+	if length(evalScores)>1
+		maxIndex=findfirst(evalScores.==max(evalScores...))
+	else
+		maxIndex=1
+	end
+
+
+	return startLegalMoves[maxIndex]
 
 end
+
+
+
 
 function getFreeTiles(board)
 
@@ -382,9 +473,9 @@ function iterativeRandom(board::Array{Int64,2})
 
 			input=legalMoves[rand(1:length(legalMoves))]
 
-			nnextBoard,scoreDiff=boardMove(nextBoard,input)
+			nnextBoard,scorediff=boardMove(nextBoard,input)
 
-			gameScore=gameScore+scoreDiff
+			gameScore=gameScore+scorediff
 			
 			# Literally, we should put
 			# "if isMoved(board,nnextBoard)>0" here,
