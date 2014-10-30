@@ -1,4 +1,4 @@
-using julia2048
+using core2048X
 
 function testmove()
 

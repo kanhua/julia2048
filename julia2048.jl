@@ -1,6 +1,6 @@
 module julia2048
 
-export move, merge, moveMerge, boardMove, getLine, setLine, printBoard, initBoard, addTile
+using core2048
 
 const ContinueGame=999
 const WinGame=777
@@ -9,188 +9,11 @@ const QuitGame=-99
 
 
 
-function move(line::Array{Int64,1},direction::Int64)
-	lineLen=length(line)
-
-	nonZeroLine=line[line.>0]
-
-	if length(nonZeroLine)<lineLen
-		if direction >0
-			newLine=[nonZeroLine,zeros(Int64,lineLen-length(nonZeroLine))]
-		elseif direction < 0
-			newLine=[zeros(Int64,lineLen-length(nonZeroLine)),nonZeroLine]
-		end
-		return newLine
-	
-	elseif length(nonZeroLine)==lineLen
-
-		return line
-	end
-end
-
-
-function merge(line::Array{Int64,1},direction::Int64)
-
-	addScore=0
-	lineLen=length(line)
-	if direction>0
-		for idx=1:lineLen
-			nextidx=idx+1;
-			if nextidx<=lineLen
-				if line[idx]==line[nextidx]
-
-					addScore=addScore+line[idx]*2
-					line[idx]=line[idx]*2
-					line[nextidx]=0
-				end
-
-			end
-		end
-	elseif direction <0
-		for idx=lineLen:-1:1
-			nextidx=idx-1;
-			if nextidx>=1
-				if line[idx]==line[nextidx]
-
-					addScore=addScore+line[idx]*2
-					line[idx]=line[idx]*2
-					line[nextidx]=0
-				end
-
-			end
-		end
-	end
-
-	return line,addScore
-end
-
-
-
-function moveMerge(line::Array{Int64,1},direction::Int64)
-
-	addScore=0
-	line=move(line,direction)
-	
-	line,addScore=merge(line,direction)
-	if addScore >0
-		line=move(line,direction)
-	end
-
-	return line,addScore
-end
-
-
-function boardMove(board,direction)
-
-	newBoard=copy(board)
-	addScore=0
-	for rowIdx=1:size(newBoard,abs(direction))
-		line=getLine(newBoard,abs(direction),rowIdx)
-		newLine,score=moveMerge(line,direction)
-		addScore=addScore+score
-		newBoard=setLine(newBoard,abs(direction),rowIdx,newLine)
-	end
-
-	return newBoard,addScore
-end
-
-
-function getLine(board,dim,index)
-
-	if dim==1
-		
-		return reshape(board[index,:],size(board,dim))
-
-	elseif dim==2
-
-		return reshape(board[:,index],size(board,dim))
-
-	end
-
-end
-
-
-function setLine(board,dim,index,line)
-
-	if dim==1
-		
-		board[index,:]=line
-
-	elseif dim==2
-
-		board[:,index]=reshape(line,1,size(board,dim))
-
-	end
-
-	return board
-
-end
-
-
-function printBoard(board)
-
-	boardStr=""
-	for rowIdx=1:size(board,1)
-		for colIdx=1:size(board,2)
-			tmpStr=@sprintf("%6d",board[rowIdx,colIdx])
-			boardStr=string(boardStr,tmpStr)
-		end
-		boardStr=string(boardStr,"\n")
-	end
-	return boardStr
-end
-
-
-function initBoard(boardSize=4)
-	
-	# Initialize a board
-
-	board=zeros(Int64,boardSize,boardSize)	
-
-	for i=1:2
-		board=addTile(board)
-	end
-
-	return board
-
-end
-
-
-
-
-function addTile(board)
-	
-	newboard=copy(board)
-	flatBoard=reshape(newboard,size(board,1)*size(board,2))
-
-	# get index = zero
-	freeTileIndex=find(flatBoard.==0)
-
-	#randomly choose a index
-	newTileIndex=rand(1:length(freeTileIndex))
-
-	tileToChoose=[ones(Int64,9).*2,4]
-
-	#chosse a tile
-	newTile=rand(1:length(tileToChoose))
-
-	#put tile on the board
-
-	assert(flatBoard[freeTileIndex[newTileIndex]]==0)
-	flatBoard[freeTileIndex[newTileIndex]]=tileToChoose[newTile]
-
-	#return the new board
-	return reshape(flatBoard,size(board,1),size(board,2))
-
-end
-
-
-
 function humanPlayer(board)
 
 	promptStr="Enter your next move:"
 
-	promptStr="請輸入方向(上(K),下(J),左(H),右(L),離開(Q)):"
+	promptStr="(Up(K),Down(J),Left(H),Write(L),Quit(Q)):"
 
 	print(promptStr)
 
@@ -213,7 +36,7 @@ function humanPlayer(board)
 end
 
 
-function randomAgenit(board)
+function randomAgent(board)
 
 	legalMoves=getLegalMoves(board)
 
@@ -241,22 +64,7 @@ function greedyAgent(board)
 end
 
 
-function iterativeRandomAgent(board)
 
-	legalMoves,score=getLegalMoves_eval(board,iterativeRandom)
-
-	println(score)
-	assert(length(legalMoves)>0)
-
-	if length(score)>1
-		maxIndex=findfirst(score.==max(score...))
-	else
-		maxIndex=1
-	end
-
-
-	return legalMoves[maxIndex]
-end
 
 function randomGen(N)	
 	shift=2
@@ -269,8 +77,10 @@ end
 
 
 
-function iterativeRandomAgent2(board)
+function iterativeRandomAgent(board)
 
+	# This AI agent uses Monte Carlo method. 
+	# The idea comes from http://ronzil.github.io/2048-AI/
 
 	startLegalMoves=getLegalMoves(board)
 
@@ -347,7 +157,6 @@ end
 
 
 
-
 function getFreeTiles(board)
 
 	i,j,v=findnz(board.==0)
@@ -380,7 +189,6 @@ function getLegalMoves(board::Array{Int64,2})
 			
 		end
 	end
-
 
 	return legalMoves
 
@@ -452,53 +260,6 @@ function ssum(N::Int64)
 	return tmp
 end
 
-function iterativeRandom(board::Array{Int64,2})
-
-
-	moves=10
-
-	scores=zeros(moves)
-
-	for i=1:length(scores)
-
-		nextBoard=copy(board)
-
-		totalSteps=0
-
-		legalMoves=getLegalMoves(nextBoard)
-
-		gameScore=0
-
-		while length(legalMoves) > 0
-
-			input=legalMoves[rand(1:length(legalMoves))]
-
-			nnextBoard,scorediff=boardMove(nextBoard,input)
-
-			gameScore=gameScore+scorediff
-			
-			# Literally, we should put
-			# "if isMoved(board,nnextBoard)>0" here,
-			# but since we limit the possible moves to legalMoves, 
-			# so we don't need it
-			nnextBoard=addTile(nnextBoard)
-			
-
-			totalSteps=totalSteps+1
-
-
-			legalMoves=getLegalMoves(nnextBoard)
-			nextBoard=copy(nnextBoard)
-		end
-
-		#scores[i]=getGameScore(nextBoard)
-		scores[i]=gameScore
-	end
-	
-	return mean(scores)
-end
-
-
 
 function gameState(board)
 
@@ -529,7 +290,7 @@ function gameLoop(player::Function)
 			println(printBoard(board))
 			@printf("current score: %d\n", gameScore)
 			@printf("accumulated steps: %d\n", totalSteps)
-			@printf("heurisitic score: %d\n", getGameScore(board))
+			#@printf("heurisitic score: %d\n", getGameScore(board))
 		end
 		
 		moveDir=player(board)
